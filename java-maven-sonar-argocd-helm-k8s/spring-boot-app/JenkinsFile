@@ -12,17 +12,21 @@ pipeline {
   stages {
     stage('Checkout') {
       steps {
+        sh 'whoami'
         sh 'echo passed'
         //git branch: 'main', url: 'https://github.com/iam-veeramalla/Jenkins-Zero-To-Hero.git'
       }
     }
     stage('Build and Test') {
       steps {
+        sh 'whoami'
         sh 'ls -ltr'
         // build the project and create a JAR file
         dir('java-maven-sonar-argocd-helm-k8s/spring-boot-app') {
+                    sh 'whoami'
                     sh 'mvn clean package'
                 }
+       sh 'whoami'
       }
     }
     // stage('Static Code Analysis') {
