@@ -19,16 +19,16 @@ pipeline {
         sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn clean package'
       }
     }
-    stage('Static Code Analysis') {
-      environment {
-        SONAR_URL = "http://52.146.9.159:9000"
-      }
-      steps {
-        withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
-          sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
-        }
-      }
-    }
+    // stage('Static Code Analysis') {
+    //   environment {
+    //     SONAR_URL = "http://52.146.9.159:9000"
+    //   }
+    //   steps {
+    //     withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
+    //       sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}'
+    //     }
+    //   }
+    // }
     stage('Build and Push Docker Image') {
       environment {
         DOCKER_IMAGE = "gagan2104/ultimate-cicd:${BUILD_NUMBER}"
@@ -45,25 +45,69 @@ pipeline {
         }
       }
     }
-    stage('Update Deployment File') {
-        environment {
-            GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
-            GIT_USER_NAME = "gagans2104"
-        }
-        steps {
-            withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
-                sh '''
-                    git config user.email "gagan7876@gmail.com"
-                    git config user.name "Sai Gagan S"
-                    BUILD_NUMBER=${BUILD_NUMBER}
-                    sed -i "s#gagan2104/ultimate-cicd:.*#gagan2104/ultimate-cicd:${BUILD_NUMBER}#g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
-                    git add .
-                    git commit -m "Update deployment image to version ${BUILD_NUMBER}"
-                    git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
-                    
-                '''
+
+    stage('Clone/Pull Repo') {
+                steps {
+                    script {
+                        if (fileExists('helm-charts')) {
+                            echo 'Cloned repo already exists - Pulling latest changes'
+                            dir("helm-charts") {
+                                sh 'git pull'
+                            }
+                        } else {
+                            sh 'git clone https://github.com/saigagansatish/helm-charts'
+                            sh 'ls -ltr'
+                        }
+                    }
+                }
             }
-        }
-    }
+
+            stage('Commit & Push') {
+                steps {
+                    script {
+                        dir("helm-charts/manifests/${NAME}/sit/immutable") {
+                            withCredentials([usernamePassword(
+                                credentialsId: 'github',
+                                usernameVariable: 'username',
+                                passwordVariable: 'password'
+                            )]) {
+                                encodedPassword = URLEncoder.encode("$password", 'UTF-8')
+                                echo "sa ${encodedPassword}"
+                                sh "git config --global user.email 'jenkins@ci.com'"
+                                sh "git remote set-url origin https://${username}:${encodedPassword}@github.com/${username}/helm-charts.git"
+                                sh 'sed -i "s#tag:.*#tag: ${VERSION}#g" values.yaml'
+                                sh "git checkout -b ${NAME}-${env.BUILD_ID}"
+                                sh 'cat values.yaml'
+                                sh 'git add values.yaml'
+                                sh 'git commit -am "Updated image version for Build - $VERSION"'
+                                echo 'push started'
+                                sh "git push origin ${NAME}-${env.BUILD_ID}"
+                            }
+                            echo 'push complete'
+                        }
+                    }
+                }
+            }
+
+    // stage('Update Deployment File') {
+    //     environment {
+    //         GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
+    //         GIT_USER_NAME = "gagans2104"
+    //     }
+    //     steps {
+    //         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
+    //             sh '''
+    //                 git config user.email "gagan7876@gmail.com"
+    //                 git config user.name "Sai Gagan S"
+    //                 BUILD_NUMBER=${BUILD_NUMBER}
+    //                 sed -i "s#gagan2104/ultimate-cicd:.*#gagan2104/ultimate-cicd:${BUILD_NUMBER}#g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
+    //                 git add .
+    //                 git commit -m "Update deployment image to version ${BUILD_NUMBER}"
+    //                 git push https://${GITHUB_TOKEN}@github.com/${GIT_USER_NAME}/${GIT_REPO_NAME} HEAD:main
+                    
+    //             '''
+    //         }
+    //     }
+    // }
   }
 }
