@@ -60,7 +60,6 @@ pipeline {
                             }
                         } else {
                             sh 'git clone https://github.com/saigagansatish/helm-charts'
-                            sh "chown -R jenkins:jenkins ${env.WORKSPACE}"
                             sh 'ls -ltr'
                         }
                     }
@@ -115,15 +114,4 @@ pipeline {
     //     }
     // }
   }
-post {
-        // Clean after build
-        always {
-            cleanWs(cleanWhenNotBuilt: false,
-                    deleteDirs: true,
-                    disableDeferredWipeout: true,
-                    notFailBuild: true,
-                    patterns: [[pattern: '.gitignore', type: 'INCLUDE'],
-                               [pattern: '.propsfile', type: 'EXCLUDE']])
-        }
-    }
 }
